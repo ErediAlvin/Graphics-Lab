@@ -3,177 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Graphics Pipeline Demo</title>
+    <title>Canvas Traffic Racer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background-color: #1a1a24;
-            color: #eaeaea;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            background: #0a0a1a;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            flex-direction: column;
             overflow: hidden;
+            position: relative;
         }
-        canvas {
-            background-color: #282a36;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+
+        /* Animated gradient background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(120, 40, 200, 0.18) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 180, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(255, 50, 100, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 70% 60%, rgba(0, 255, 180, 0.08) 0%, transparent 40%);
+            animation: bgShift 12s ease-in-out infinite alternate;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        @keyframes bgShift {
+            0% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-3%, 2%) rotate(1deg); }
+            66% { transform: translate(2%, -2%) rotate(-1deg); }
+            100% { transform: translate(-1%, 1%) rotate(0.5deg); }
+        }
+
+        /* Particle canvas behind everything */
+        #particleCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Title */
+        .game-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 1.6rem;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+            z-index: 10;
+            color: #ffffff;
+        }
+
+        /* Game canvas wrapper for glow effect */
+        .canvas-wrapper {
+            position: relative;
+            z-index: 10;
             border-radius: 12px;
-            border: 2px solid #44475a;
+            padding: 3px;
+            background: linear-gradient(180deg, rgba(0, 210, 255, 0.5), rgba(168, 85, 247, 0.4), rgba(255, 64, 129, 0.5));
+            box-shadow:
+                0 0 40px rgba(0, 210, 255, 0.15),
+                0 0 80px rgba(168, 85, 247, 0.1),
+                0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: canvasGlow 4s ease-in-out infinite alternate;
         }
-        .header {
+
+        @keyframes canvasGlow {
+            0% {
+                box-shadow:
+                    0 0 40px rgba(0, 210, 255, 0.15),
+                    0 0 80px rgba(168, 85, 247, 0.1),
+                    0 20px 60px rgba(0, 0, 0, 0.5);
+            }
+            100% {
+                box-shadow:
+                    0 0 50px rgba(0, 210, 255, 0.25),
+                    0 0 100px rgba(168, 85, 247, 0.18),
+                    0 20px 80px rgba(0, 0, 0, 0.6);
+            }
+        }
+
+        #gameCanvas {
+            display: block;
+            background-color: #3a3a50;
+            border-radius: 10px;
+            border: none;
+        }
+
+        /* Instructions card */
+        .instructions {
+            margin-top: 20px;
             text-align: center;
-            margin-bottom: 20px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 12px 28px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }
-        h1 {
-            margin: 0 0 5px 0;
-            font-size: 1.5rem;
-            color: #bd93f9;
+
+        .instructions p {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
         }
-        p {
-            margin: 0;
-            font-size: 0.9rem;
-            color: #8be9fd;
+
+        .instructions .key {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 2px 10px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.72rem;
+            color: #00d2ff;
+            margin: 0 3px;
+            box-shadow: 0 2px 6px rgba(0, 210, 255, 0.1);
+        }
+
+        /* Grid overlay for cyberpunk feel */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 0;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>Canvas Graphics Pipeline Demonstration</h1>
-        <p>Object 1: Transforming Star | Object 2: Kinetic Orb</p>
+    <canvas id="particleCanvas"></canvas>
+
+    <h1 class="game-title">Traffic Racer</h1>
+
+    <div class="canvas-wrapper">
+        <canvas id="gameCanvas" width="300" height="500"></canvas>
+    </div>
+    
+    <div class="instructions">
+        <p>Use <span class="key">←</span> and <span class="key">→</span> arrow keys to steer</p>
     </div>
 
-    <canvas id="graphicsCanvas" width="800" height="500"></canvas>
-
     <script>
-        const canvas = document.getElementById('graphicsCanvas');
+        // ===========================
+        // Background Particles System
+        // ===========================
+        const pCanvas = document.getElementById('particleCanvas');
+        const pCtx = pCanvas.getContext('2d');
+
+        function resizeParticleCanvas() {
+            pCanvas.width = window.innerWidth;
+            pCanvas.height = window.innerHeight;
+        }
+        resizeParticleCanvas();
+        window.addEventListener('resize', resizeParticleCanvas);
+
+        const particles = [];
+        const PARTICLE_COUNT = 60;
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            particles.push({
+                x: Math.random() * pCanvas.width,
+                y: Math.random() * pCanvas.height,
+                radius: Math.random() * 2 + 0.5,
+                speedX: (Math.random() - 0.5) * 0.4,
+                speedY: (Math.random() - 0.5) * 0.3 - 0.2,
+                opacity: Math.random() * 0.4 + 0.1,
+                hue: Math.random() > 0.5 ? 190 : 270 // cyan or purple
+            });
+        }
+
+        function animateParticles() {
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+
+            particles.forEach(p => {
+                p.x += p.speedX;
+                p.y += p.speedY;
+
+                // Wrap around edges
+                if (p.x < 0) p.x = pCanvas.width;
+                if (p.x > pCanvas.width) p.x = 0;
+                if (p.y < 0) p.y = pCanvas.height;
+                if (p.y > pCanvas.height) p.y = 0;
+
+                pCtx.beginPath();
+                pCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                pCtx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.opacity})`;
+                pCtx.fill();
+
+                // Glow
+                pCtx.beginPath();
+                pCtx.arc(p.x, p.y, p.radius * 3, 0, Math.PI * 2);
+                pCtx.fillStyle = `hsla(${p.hue}, 80%, 70%, ${p.opacity * 0.15})`;
+                pCtx.fill();
+            });
+
+            // Draw faint connection lines between nearby particles
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 120) {
+                        pCtx.beginPath();
+                        pCtx.moveTo(particles[i].x, particles[i].y);
+                        pCtx.lineTo(particles[j].x, particles[j].y);
+                        pCtx.strokeStyle = `rgba(100, 180, 255, ${0.06 * (1 - dist / 120)})`;
+                        pCtx.lineWidth = 0.5;
+                        pCtx.stroke();
+                    }
+                }
+            }
+
+            requestAnimationFrame(animateParticles);
+        }
+        animateParticles();
+
+        // ===========================
+        // Game Code
+        // ===========================
+        const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
-        // State variables for our two objects
-        let star = { x: 400, y: 250, angle: 0, scale: 1, scaleDir: 0.005 };
-        let orb = { x: 100, y: 100, vx: 4, vy: 3, radius: 25 };
+        // Game State Variables
+        let gameOver = false;
+        let score = 0;
+        let speed = 4;
+        let roadOffset = 0;
+        
+        // Player Object
+        const player = {
+            x: canvas.width / 2 - 20,
+            y: canvas.height - 80,
+            width: 40,
+            height: 70,
+            color: '#00d2ff',
+            speed: 5
+        };
 
-        function animate() {
-            // Clear the frame for the new draw cycle
+        // Enemy Array
+        const enemies = [];
+        
+        // Input Tracking
+        const keys = { ArrowLeft: false, ArrowRight: false };
+
+        window.addEventListener('keydown', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+        });
+        window.addEventListener('keyup', (e) => {
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+        });
+
+        function spawnEnemy() {
+            const width = 40;
+            const height = 70;
+            // Ensure enemy spawns within road bounds
+            const x = Math.random() * (canvas.width - width);
+            const y = -height;
+            const colors = ['#ff4757', '#ffa502', '#7bed9f', '#ff6b81'];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            
+            enemies.push({ x, y, width, height, color });
+        }
+
+        function gameLoop() {
+            if (gameOver) {
+                drawGameOver();
+                return; // Stop the loop
+            }
+
+            // ==========================================
+            // 1. APPLICATION STAGE (Physics & Logic)
+            // ==========================================
+            
+            // Move road markings to simulate speed
+            roadOffset += speed;
+            if (roadOffset > 40) roadOffset = 0;
+
+            // Player Movement
+            if (keys.ArrowLeft && player.x > 0) {
+                player.x -= player.speed;
+            }
+            if (keys.ArrowRight && player.x + player.width < canvas.width) {
+                player.x += player.speed;
+            }
+
+            // Spawn enemies randomly
+            if (Math.random() < 0.02) {
+                spawnEnemy();
+            }
+
+            // Update enemies and check collisions
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                e.y += speed; // Move enemy down
+
+                // Simple AABB Collision Detection
+                if (
+                    player.x < e.x + e.width &&
+                    player.x + player.width > e.x &&
+                    player.y < e.y + e.height &&
+                    player.height + player.y > e.y
+                ) {
+                    gameOver = true;
+                }
+
+                // Remove enemies that pass the bottom & increase score
+                if (e.y > canvas.height) {
+                    enemies.splice(i, 1);
+                    score += 10;
+                    // Gradually increase difficulty
+                    if (score % 50 === 0) speed += 0.5; 
+                }
+            }
+
+            // Render the frame
+            draw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function draw() {
+            // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // ==========================================
-            // 1. APPLICATION STAGE
+            // 2 & 3. GEOMETRY & RASTERIZATION STAGES
             // ==========================================
-            // Here we handle the game/simulation logic, physics, 
-            // and state updates before any rendering geometry is calculated.
             
-            // Update Star State (Rotation and Pulsing)
-            star.angle += 0.015;
-            star.scale += star.scaleDir;
-            if (star.scale > 1.3 || star.scale < 0.7) star.scaleDir *= -1; // Reverse scale
-
-            // Update Orb State (Position and Collision physics)
-            orb.x += orb.vx;
-            orb.y += orb.vy;
-            
-            // Wall collision detection for the orb
-            if (orb.x + orb.radius > canvas.width || orb.x - orb.radius < 0) orb.vx *= -1;
-            if (orb.y + orb.radius > canvas.height || orb.y - orb.radius < 0) orb.vy *= -1;
-
-            // Proceed to render our objects
-            renderStar();
-            renderOrb();
-
-            // Loop the animation
-            requestAnimationFrame(animate);
-        }
-
-        function renderStar() {
-            ctx.save();
-            
-            // ==========================================
-            // 2. GEOMETRY STAGE (Star)
-            // ==========================================
-            // We apply spatial transformations (translation, rotation, scaling)
-            // and generate the mathematical vertices (vectors) of the polygon.
-            ctx.translate(star.x, star.y);
-            ctx.rotate(star.angle);
-            ctx.scale(star.scale, star.scale);
-            
-            ctx.beginPath();
-            const spikes = 6;
-            const outerRadius = 80;
-            const innerRadius = 35;
-            let rot = Math.PI / 2 * 3;
-            let x, y;
-            let step = Math.PI / spikes;
-
-            ctx.moveTo(0, -outerRadius);
-            for (let i = 0; i < spikes; i++) {
-                // Calculate outer vertex
-                x = Math.cos(rot) * outerRadius;
-                y = Math.sin(rot) * outerRadius;
-                ctx.lineTo(x, y);
-                rot += step;
-
-                // Calculate inner vertex
-                x = Math.cos(rot) * innerRadius;
-                y = Math.sin(rot) * innerRadius;
-                ctx.lineTo(x, y);
-                rot += step;
+            // Draw Road Markings
+            ctx.fillStyle = '#fff';
+            for (let i = -40; i < canvas.height; i += 40) {
+                // Dashed line in the center
+                ctx.fillRect(canvas.width / 2 - 5, i + roadOffset, 10, 20);
             }
-            ctx.lineTo(0, -outerRadius);
-            ctx.closePath();
 
-            // ==========================================
-            // 3. RASTERIZATION STAGE (Star)
-            // ==========================================
-            // Converting the calculated vector paths into actual colored 
-            // pixels mapped onto the Canvas pixel buffer.
-            ctx.fillStyle = '#ffb86c'; // Fill pixels
-            ctx.fill();
-            
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = '#ff5555'; // Outline pixels
-            ctx.stroke();
+            // Draw Player Car
+            drawCar(player.x, player.y, player.width, player.height, player.color);
 
-            ctx.restore();
+            // Draw Enemy Cars
+            enemies.forEach(e => {
+                drawCar(e.x, e.y, e.width, e.height, e.color);
+            });
+
+            // Draw Score
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 30);
         }
 
-        function renderOrb() {
-            ctx.save();
-
-            // ==========================================
-            // 2. GEOMETRY STAGE (Orb)
-            // ==========================================
-            // Defining the mathematical boundaries of a circle path.
-            ctx.beginPath();
-            ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
-
-            // ==========================================
-            // 3. RASTERIZATION STAGE (Orb)
-            // ==========================================
-            // Generating a visual shader (radial gradient) and rasterizing 
-            // the generated circle path to screen pixels.
-            let gradient = ctx.createRadialGradient(
-                orb.x - orb.radius/3, orb.y - orb.radius/3, orb.radius/8, 
-                orb.x, orb.y, orb.radius
-            );
-            gradient.addColorStop(0, '#50fa7b'); // Inner color
-            gradient.addColorStop(1, '#028a31'); // Outer color
+        function drawCar(x, y, w, h, color) {
+            // Geometry: Defining the car body and windows
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h); // Main body
             
-            ctx.fillStyle = gradient; // Map shader to fill
-            ctx.fill(); // Rasterize interior
-            
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#f1fa8c';
-            ctx.stroke(); // Rasterize border
-
-            ctx.restore();
+            ctx.fillStyle = '#222';
+            ctx.fillRect(x + 5, y + 10, w - 10, 15); // Windshield
+            ctx.fillRect(x + 5, y + h - 20, w - 10, 10); // Rear window
         }
 
-        // Start the graphics pipeline loop
-        animate();
+        function drawGameOver() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.fillStyle = '#fff';
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('CRASHED!', canvas.width / 2, canvas.height / 2 - 20);
+            
+            ctx.font = '20px Arial';
+            ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2 + 20);
+            ctx.fillText('Refresh to Restart', canvas.width / 2, canvas.height / 2 + 60);
+        }
+
+        // Start the game
+        gameLoop();
     </script>
 </body>
 </html>
